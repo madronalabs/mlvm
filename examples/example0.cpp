@@ -82,7 +82,7 @@ int main( int argc, char *argv[] )
   const int kScratchBytes{1024};
   const int kPersistentBytes{1024};
   const int kReadOnlyBytes{1024};
-  vm.allocateMemory(kScratchBytes, kPersistentBytes, kReadOnlyBytes);
+  vm.allocateMemory(MemoryRequirements{ kScratchBytes, kPersistentBytes });
   vm.setProgram(testProgram);
 
 

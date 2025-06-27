@@ -7,13 +7,27 @@ namespace ml {
 
 bool MLVM::allocateMemory(const MemoryRequirements& memReqs) {
   // TODO errors
-  scratchMem = std::make_unique<char[]>(memReqs.scratchBytes);
-  persistentMem = std::make_unique<char[]>(memReqs.persistentBytes);
+  registers.resize(kNumRegisters);
+  
+  // TODO errors
+  persistentMem.resize(memReqs.persistentVectors);
   return true;
 }
 
 void MLVM::setProgram(const Program& newCode) {
   program = newCode;
+}
+
+inline DSPVector* MLVM::getSrcPtr(Operand arg) {
+  bool f = getMemFlag(arg);
+  if(f == REGISTER)
+  {
+    return registers.data() + getIndex(arg);
+  }
+  else // OTHER
+  {
+    
+  }
 }
 
 void MLVM::process(AudioContext* context) {
@@ -34,15 +48,12 @@ void MLVM::process(AudioContext* context) {
   // todo - get header into project!
   
   for (auto& instruction : program.instructions) {
-    DSPVector op1, op2;
+    
     switch (instruction.opcode) {
       case NOOP:
         break;
       case LOAD:
-        auto f = getMemFlag(instruction.src1);
-        if(f == REGISTER)
-        {
-        }
+        auto src = getSrcArgPtr
         context->outputs[0] = DSPVector(0.0023f);
         break;
       case ADD:

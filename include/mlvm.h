@@ -8,6 +8,7 @@
 namespace ml {
 
 constexpr int kNumVMParameters{128};
+constexpr int kNumRegisters{128};
 
 enum opcodes {
   NOOP = 0,
@@ -18,20 +19,16 @@ enum opcodes {
   // ... and many more
 };
 
-enum memFlags {
-  // src or dest is in a register
+enum addressModes {
   REGISTER = 0,
-  
-  // src or dest is an immediate or in another memory arena -
-  // TODO use NaN-boxed bytes in float to signify which.
-  // this way we don't have to decode bytes 4-7 at all unless needed
-  OTHER = 1
+  IMMEDIATE,
+  CONTEXT,
+  LITERAL
 };
-
 
 // NOTES:
 // byte 0: opcode  (bit 7: k-rate version?) (condition register?)
-// byte 1: src1 [2 bits memFlags, 6 bits
+// byte 1: src1
 // byte 2: src2 register idx
 // byte 3: dest register idx
 // bytes 4-7: state pointer in bytes from state arena start, or immediate float32 value, or other operand registers
@@ -40,29 +37,26 @@ enum memFlags {
 // inputs / outputs address mode? - a single bit can mean use inputs if loading, outputs if storing.
 //
 
-using MemoryLocation = uint8_t;
-bool getMemFlag(MemoryLocation m) { return (m&0x10) != 0; }
-int getIndex(MemoryLocation m) { return m&0x7F; }
-
+// operand: [2 bits memFlags, 6 bits index]
+using Operand = uint8_t;
+int getAddressMode(Operand m) { return m&0xC0; }
+int getIndex(Operand m) { return m&0x3F; }
 
 struct Instruction {
   uint8_t opcode;
-  MemoryLocation src1;
-  MemoryLocation src2;
-  MemoryLocation dest;
-  union {
-    float immediate;
-    uint32_t offset;
-  };
+  Operand dest;
+  Operand src1;
+  Operand src2;
 };
 
+// when loading floats, we can all 16 bits of the src operands as an immediate float value.
+// floats can be loaded to DSPVectors by filling, ramping, set1, setn...
 
-
-static_assert(sizeof(Instruction) == 8);
+static_assert(sizeof(Instruction) == 4);
 
 struct MemoryRequirements {
-  size_t scratchBytes;
-  size_t persistentBytes;
+  size_t scratchVectors;
+  size_t persistentVectors;
 };
 
 struct Program {
@@ -97,18 +91,20 @@ struct MLVMState {
 
 
 struct MLVM {
-  std::unique_ptr<char[]> scratchMem;
-  std::unique_ptr<char[]> persistentMem;
-  std::unique_ptr<char[]> readOnlyMem;
+  std::vector< DSPVector > registers;
+  std::vector< DSPVector > persistentMem;
   Program program;
   uint32_t programCounter;
   
-  
-  //void compile(const JSON& dspGraph, Program& programOutput); // TODO - takes JSON list of modules and connections, makes opcodes and memory needs
+  //void compile(const JSON& dspGraphInput, Program& programOutput); // TODO - takes JSON list of modules and connections, makes opcodes and memory needs
   
   bool allocateMemory(const MemoryRequirements&);
   void setProgram(const Program& newCode);
   void process(AudioContext* context);
+  
+private:
+  
+  DSPVector* getSrcArgPtr(MemoryLocation arg);
 };
 
 } // namespace ml
