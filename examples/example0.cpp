@@ -7,8 +7,9 @@
 #include <iostream>
 #include "madronalib.h"
 #include "mlvm.h"
+#include "assembler.h"
 
-using namespace ml;
+using namespace mlvm;
 
 // TEMP
 constexpr int kInputChannels = 0;
@@ -55,9 +56,6 @@ int main( int argc, char *argv[] )
     eventsToSignals.addEvent(MIDIMessageToEvent(m));
   };
 
-  // vm context data
-  //DSPVectorArray< kNumVMParameters > parameterValues;
-
   MIDIInput midiInput;
   if (!midiInput.start(handleMsg)) {
     std::cout << "couldn't start MIDI input!\n";
@@ -73,10 +71,30 @@ int main( int argc, char *argv[] )
   MLVM vm;
 
   // TODO compile the graph of processors, getting memory needs
-  //vm.compile(testGraph, testProgram, memoryNeeds);
+  // auto testGraph = readJSONGraph;
+  // vm.compile(testGraph, testProgram, memoryNeeds);
 
-  // TEMP add instructions explicitly to make a tiny program
-  Program testProgram{{23}, {32}};
+  // but right now we can use a toy assembler
+   ToyAssembler assembler;
+   
+   std::string testCode = R"(
+   MOV R1, #5          ; Move immediate 5 to R1
+   ADD R2, R1, #10     ; Add R1 + 10, store in R2
+   LDR R3, =3.14159    ; Load literal from pool into R3
+   STR R2, [R4]        ; Store R2 to memory at R4
+   CMP R1, R2          ; Compare R1 with R2
+   BNE R0              ; Branch if not equal
+   MUL R5, R2, R3      ; Multiply R2 * R3, store in R5 
+   END
+   )";
+   
+   Program testProgram = assembler.assemble(testCode);
+   assembler.printProgram(testProgram);
+  
+  // TEMP
+  return;
+   
+  
 
   // TEMP allocate program memory and set opcodes explicitly
   const int kScratchBytes{1024};
