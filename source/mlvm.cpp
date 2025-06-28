@@ -10,7 +10,7 @@ bool MLVM::allocateMemory(const MemoryRequirements& memReqs) {
   registers.resize(kNumRegisters);
   
   // TODO errors
-  arena.resize(memReqs.persistentVectors);
+  arena.resize(memReqs.stateVectors + memReqs.scratchVectors);
   return true;
 }
 
@@ -74,7 +74,6 @@ DSPVector* MLVM::getDest2(Operand op1, Operand op2)
 void MLVM::process(AudioContext* context) {
   size_t destIdx, srcIdx1, srcIdx2;
   DSPVector v1, v2;
-  
   
   // main inputs / outputs are dynamic, so check them
   if (context->outputs.size() < 1) return;

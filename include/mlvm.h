@@ -108,10 +108,15 @@ static_assert(sizeof(Instruction) == 4);
 // for a few instructions like MUL_ADD, the operands can be restricted to registers, so we
 // can pack four register indices (6 bits * 4) as operands if we want to.
 
-
 struct MemoryRequirements {
+  // number of vectors a module or program needs to store its persistent state.
+  size_t stateVectors;
+  
+  // number of scratch memory vectors a module needs for temporary storage -
+  // not saved between process() calls. Typically a program will allocate scratch
+  // storage for the module needing the most scratch, and all modules will share
+  // that scratch area.
   size_t scratchVectors;
-  size_t persistentVectors;
 };
 
 struct Program {

@@ -70,32 +70,29 @@ int main( int argc, char *argv[] )
   // setup the vm
   MLVM vm;
 
-  // TODO compile the graph of processors, getting memory needs
+  // TODO compile the graph of modules, getting memory needs
   // auto testGraph = readJSONGraph;
-  // vm.compile(testGraph, testProgram, memoryNeeds);
+  // vm.compile(testGraph, testProgram);
 
-  // but right now we can use a toy assembler
-   ToyAssembler assembler;
-   
-   std::string testCode = R"(
-   MOV R1, #5          ; Move immediate 5 to R1
-   ADD R0, R1, #1      ; Add R1 + 1, store in R0
-   LDR R2, =2.781828   ; Load literal from pool into R2
-   LDR R0, =3.14159    ; Load literal from pool into R0
-   STR R2, [#3]        ; Store R2 to arena at offset 3
-   MUL R0, R1, R2      ; Multiply R1 * R2, store in R0
-   END
-   )";
-   
-   Program testProgram = assembler.assemble(testCode);
-   assembler.printProgram(testProgram);
+  // but right now we can use a toy assembler to write a
+  // program that is like a single module
+  ToyAssembler assembler;
 
+  std::string testCode = R"(
+  MOV R1, #5          ; Move immediate 5 to R1
+  ADD R0, R1, #1      ; Add R1 + 1, store in R0
+  LDR R2, =2.71828    ; Load literal from pool into R2
+  LDR R0, =3.14159    ; Load literal from pool into R0
+  STR R2, [#3]        ; Store R2 to arena at offset 3
+  MUL R0, R1, R2      ; Multiply R1 * R2, store in R0
+  END
+  )";
+
+  Program testProgram = assembler.assemble(testCode);
+  assembler.printProgram(testProgram);
 
   // TEMP allocate program memory and set opcodes explicitly
-  const int kScratchBytes{1024};
-  const int kPersistentBytes{1024};
-  const int kReadOnlyBytes{1024};
-  vm.allocateMemory(MemoryRequirements{ kScratchBytes, kPersistentBytes });
+  vm.allocateMemory(MemoryRequirements{ 128, 128 });
   vm.setProgram(testProgram);
 
   // fill a struct with the data the callback will need to create a context.
