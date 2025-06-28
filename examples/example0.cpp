@@ -79,22 +79,17 @@ int main( int argc, char *argv[] )
    
    std::string testCode = R"(
    MOV R1, #5          ; Move immediate 5 to R1
-   ADD R2, R1, #10     ; Add R1 + 10, store in R2
-   LDR R3, =3.14159    ; Load literal from pool into R3
-   STR R2, [R4]        ; Store R2 to memory at R4
-   CMP R1, R2          ; Compare R1 with R2
-   BNE R0              ; Branch if not equal
-   MUL R5, R2, R3      ; Multiply R2 * R3, store in R5 
+   ADD R0, R1, #1      ; Add R1 + 1, store in R0
+   LDR R2, =2.781828   ; Load literal from pool into R2
+   LDR R0, =3.14159    ; Load literal from pool into R0
+   STR R2, [#3]        ; Store R2 to arena at offset 3
+   MUL R0, R1, R2      ; Multiply R1 * R2, store in R0
    END
    )";
    
    Program testProgram = assembler.assemble(testCode);
    assembler.printProgram(testProgram);
-  
-  // TEMP
-  return;
-   
-  
+
 
   // TEMP allocate program memory and set opcodes explicitly
   const int kScratchBytes{1024};
@@ -103,31 +98,15 @@ int main( int argc, char *argv[] )
   vm.allocateMemory(MemoryRequirements{ kScratchBytes, kPersistentBytes });
   vm.setProgram(testProgram);
 
-
   // fill a struct with the data the callback will need to create a context.
   VMExampleState state{&vm, &eventsToSignals};
   
   AudioContext ctx(kInputChannels, kOutputChannels, kSampleRate);
   AudioTask exampleTask(&ctx, processAudio, &state);
   
+  // roll onward at 120 bpm
   ctx.updateTime(0, 120.0, true, kSampleRate);
 
   // run the audio task
   return exampleTask.runConsoleApp();
-  
-  /*
-  
-  // TODO don't require setting sample rate twice
-  vmExampleProc._currentTime.setTimeAndRate(0, 120.0, true, kSampleRate);
-  vmExampleProc.startAudio();
-
-  while(true) {
-    std::this_thread::sleep_for(milliseconds(2000));
-    std::cout << "samplesSinceStart: " << vmExampleProc._currentTime.samplesSinceStart << "\n";
-  }
-  
-  return 0;
-   
-   */
-  
 }

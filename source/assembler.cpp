@@ -9,10 +9,10 @@
 
 namespace mlvm {
 
+
 Program ToyAssembler::assemble(const std::string& assemblyCode) {
   Program program;
   program.memReqs = {0, 0}; // Default memory requirements
-  literalPool.clear();
   
   std::stringstream ss(assemblyCode);
   std::string line;
@@ -41,14 +41,37 @@ Program ToyAssembler::assemble(const std::string& assemblyCode) {
     instr.opcode = opMap[opName]; // MODE_0 by default
     
     // Parse operands based on instruction type
-    if (tokens.size() >= 2) {
-      instr.dest = createOperand(tokens[1]);
-    }
-    if (tokens.size() >= 3) {
-      instr.src1 = createOperand(tokens[2]);
-    }
-    if (tokens.size() >= 4) {
-      instr.src2 = createOperand(tokens[3]);
+    operations op = opMap[opName];
+    
+    if (op == LOAD || op == STORE) {
+      // LOAD/STORE: dest is register, src is memory (uses src1+src2)
+      if (tokens.size() >= 2) {
+        instr.dest = createRegisterOperand(tokens[1]);
+      }
+      if (tokens.size() >= 3) {
+        uint16_t literalIndex{0};
+        if(isLiteral(tokens[2]))
+        {
+          // Add float to literal pool and get index
+          program.literalPool.push_back(parseLiteral(tokens[2]));
+          literalIndex = program.literalPool.size() - 1;
+          literalIndex &= 0xCFFF; // toy impl, wrap
+        }
+        auto [src1, src2] = createMemoryOperands(tokens[2], literalIndex);
+        instr.src1 = src1;
+        instr.src2 = src2;
+      }
+    } else {
+      // Other instructions use register/immediate operands
+      if (tokens.size() >= 2) {
+        instr.dest = createRegisterOperand(tokens[1]);
+      }
+      if (tokens.size() >= 3) {
+        instr.src1 = createRegisterOperand(tokens[2]);
+      }
+      if (tokens.size() >= 4) {
+        instr.src2 = createRegisterOperand(tokens[3]);
+      }
     }
     
     program.instructions.push_back(instr);
@@ -56,23 +79,48 @@ Program ToyAssembler::assemble(const std::string& assemblyCode) {
   
   return program;
 }
-
+  
 void ToyAssembler::printProgram(const Program& program) {
   std::cout << "Program with " << program.instructions.size() << " instructions:\n";
   
   for (size_t i = 0; i < program.instructions.size(); ++i) {
     const auto& instr = program.instructions[i];
+    operations op = (operations)getOperation(instr.opcode);
+    
     std::cout << i << ": ";
-    std::cout << "Op=" << (int)getOperation(instr.opcode) << " ";
-    std::cout << "Dest=" << (int)getIndex(instr.dest) << "(" << (int)getOperandMode(instr.dest) << ") ";
-    std::cout << "Src1=" << (int)getIndex(instr.src1) << "(" << (int)getOperandMode(instr.src1) << ") ";
-    std::cout << "Src2=" << (int)getIndex(instr.src2) << "(" << (int)getOperandMode(instr.src2) << ")\n";
+    std::cout << "Op=" << op << " ";
+    
+    if (op == LOAD || op == STORE) {
+      // For LOAD/STORE, combine src1+src2 to show memory address
+      uint16_t memAddr = ((getIndex(instr.src1) << 7) | getIndex(instr.src2));
+      bool isLiteral = (getOperandMode(instr.src1) == LITERAL);
+      std::cout << "Dest=R" << getIndex(instr.dest) << " ";
+      std::cout << "MemAddr=" << memAddr << "(" << (isLiteral ? "LITERAL" : "ARENA") << ")";
+    } else {
+      std::cout << "Dest=R" << getIndex(instr.dest) << " ";
+      std::cout << "Src1=";
+      if (getOperandMode(instr.src1) == IMMEDIATE) {
+        std::cout << "#" << getIndex(instr.src1);
+      } else {
+        std::cout << "R" << getIndex(instr.src1);
+      }
+      std::cout << " Src2=";
+      if (getOperandMode(instr.src2) == IMMEDIATE) {
+        std::cout << "#" << getIndex(instr.src2);
+      } else {
+        std::cout << "R" << getIndex(instr.src2);
+      }
+    }
+    std::cout << "\n";
   }
   
-  if (!literalPool.empty()) {
+  if (!program.literalPool.empty()) {
     std::cout << "\nLiteral Pool:\n";
-    for (size_t i = 0; i < literalPool.size(); ++i) {
-      std::cout << i << ": " << literalPool[i] << "\n";
+    for (size_t i = 0; i < program.literalPool.size(); ++i) {
+      std::cout << i << ": " << program.literalPool[i] << "\n";
     }
   }
-}}
+}
+
+
+}

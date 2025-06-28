@@ -116,6 +116,7 @@ struct MemoryRequirements {
 
 struct Program {
   std::vector< Instruction > instructions;
+  std::vector< float > literalPool;
   MemoryRequirements memReqs;
 };
 
@@ -144,7 +145,9 @@ struct MLVM {
   void process(AudioContext* context);
   
 private:
-  DSPVector getSrcOperandValue(Operand op);
+  DSPVector getValue(Operand op1);
+  DSPVector getValue2(Operand op1, Operand op2, const std::vector< float >& literals);
+  DSPVector* getDest2(Operand op1, Operand op2);
 
 };
 

@@ -18,27 +18,63 @@ void MLVM::setProgram(const Program& newCode) {
   program = newCode;
 }
 
-DSPVector MLVM::getSrcOperandValue(Operand op)
+// get the value from the operand, handling the register addressing modes.
+DSPVector MLVM::getValue(Operand op)
 {
-  if(getOperandMode(op) == IMMEDIATE)
+  DSPVector result;
+  switch(getOperandMode(op))
   {
-    // fill source vector with immediate float value
-    // NOTE: for ops like set1 where we only use one float
-    // we want to not do this fill in the future
-    return DSPVector(getImmediate(op));
+    case REGISTER:
+      result = registers[getIndex(op)];
+      break;
+    case IMMEDIATE:
+      // fill vector with float immediate
+      result = DSPVector(getImmediate(op));
+      break;
   }
-  else
+  return result;
+}
+
+// get the value from the two operands, handling the memory addressing modes.
+DSPVector MLVM::getValue2(Operand op1, Operand op2, const std::vector< float >& literals)
+{
+  DSPVector result;
+  size_t offset = (getIndex(op1) << 7) | getIndex(op2);
+  switch(getOperandMode(op1))
   {
-    return registers[getIndex(op)];
+    case ARENA:
+      result = arena[offset];
+      break;
+    case LITERAL:
+      // fill vector with float literal
+      result = DSPVector(literals[offset]);
+      break;
   }
+  return result;
+}
+
+// get destination from the two operands, handling the memory addressing modes.
+DSPVector* MLVM::getDest2(Operand op1, Operand op2)
+{
+  DSPVector* result{nullptr};
+  size_t offset = (getIndex(op1) << 7) | getIndex(op2);
+  switch(getOperandMode(op1))
+  {
+    case ARENA:
+      result = &arena[offset];
+      break;
+    default:
+      // return null and probably crash - literal mode
+      // for dest doesn't make sense
+      break;
+  }
+  return result;
 }
 
 void MLVM::process(AudioContext* context) {
   size_t destIdx, srcIdx1, srcIdx2;
-  DSPVector src1, src2;
+  DSPVector v1, v2;
   
-  // TEMP
-  static int testCounter{0};
   
   // main inputs / outputs are dynamic, so check them
   if (context->outputs.size() < 1) return;
@@ -58,20 +94,27 @@ void MLVM::process(AudioContext* context) {
     auto inst = program.instructions[programCounter++];
     destIdx = getIndex(inst.dest);
 
-    src1 = getSrcOperandValue(inst.src1);
-    src2 = getSrcOperandValue(inst.src2);
+    v1 = getValue(inst.src1);
+    v2 = getValue(inst.src2);
 
     switch (inst.opcode) {
       case NOOP:
         break;
       case MOVE:
-        registers[destIdx] = src1;
+        registers[destIdx] = v1;
+        break;
+      case LOAD:
+        registers[destIdx] = getValue2(inst.src1, inst.src2, program.literalPool);
+        break;
+      case STORE:
+        // in a store, src and dest are reversed
+        *(getDest2(inst.src1, inst.src2)) = getValue(inst.dest);
         break;
       case ADD:
-        registers[destIdx] = add(src1, src2);
+        registers[destIdx] = add(v1, v2);
         break;
       case MUL:
-        registers[destIdx] = multiply(src1, src2);
+        registers[destIdx] = multiply(v1, v2);
         break;
       case END:
         goto endprogram;
@@ -87,6 +130,7 @@ void MLVM::process(AudioContext* context) {
   }
 
   // TEMP
+  static int testCounter{0};
   const int nSamples = context->getSampleRate();
   auto timeInfo = context->getTimeInfo();
   testCounter += kFloatsPerDSPVector;
